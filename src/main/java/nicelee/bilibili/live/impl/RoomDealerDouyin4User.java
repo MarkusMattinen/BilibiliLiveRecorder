@@ -43,7 +43,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 				conn.connect();
 
 				String location = conn.getHeaderField("Location");
-				Logger.println(location);
+				Logger.println("Location: " + location);
 				if(location.startsWith("https://www.iesdouyin.com")) {
 					// https://www.iesdouyin.com/share/live/6825590732829657870?anchor_id=59592712724
 					url = new URL(location);
@@ -64,7 +64,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 							"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:86.0) Gecko/20100101 Firefox/86.0");
 					conn.connect();
 					location = conn.getHeaderField("Location");
-					Logger.println(location);
+					Logger.println("Location: " + location);
 				}
 				// e.g. https://live.douyin.com/4795593332 ...
 				Matcher matcher = pShortId.matcher(location);
@@ -81,6 +81,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		try {
 			String roomId = shortId;
 
+			Logger.println("GET: " + "https://live.douyin.com/" + roomId);
 			String html = util.getContent("https://live.douyin.com/" + roomId, getPCHeader(), HttpCookies.convertCookies(cookie));
 //			Logger.println(html);
 			Matcher matcher = pJson.matcher(html);
