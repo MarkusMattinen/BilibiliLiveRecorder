@@ -19,6 +19,7 @@ import nicelee.bilibili.util.Logger;
 public class RoomDealerDouyin4User extends RoomDealer {
 
 	final public static String liver = "douyin";
+	final static String userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36";
 
 	final static Pattern pJson = Pattern.compile("<script id=\"RENDER_DATA\".*>(.*?)</script></head>");
 	final static Pattern pShortId = Pattern.compile("live.douyin.com/([0-9]+)");
@@ -51,8 +52,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 					url = new URL(location);
 					conn = (HttpURLConnection) url.openConnection();
 					conn.setInstanceFollowRedirects(false);
-					conn.setRequestProperty("User-Agent",
-							"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:86.0) Gecko/20100101 Firefox/86.0");
+					conn.setRequestProperty("User-Agent", userAgent);
 					conn.connect();
 					location = conn.getHeaderField("Location");
 					if (location.startsWith("/")) {
@@ -222,14 +222,13 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		mobile.put("User-Agent", "Mozilla/5.0 (Android 9.0; Mobile; rv:68.0) Gecko/68.0 Firefox/68.0");
 		util.download(url, fileName + ".flv", mobile);
 	}
-	
+
 	private HashMap<String, String> mobileHeader;
 	private HashMap<String, String> pcHeader;
 	private HashMap<String, String> getPCHeader(){
 		if(pcHeader == null) {
 			pcHeader = new HashMap<>();
-			pcHeader.put("User-Agent",
-					"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:86.0) Gecko/20100101 Firefox/86.0");
+			pcHeader.put("User-Agent", userAgent);
 			pcHeader.put("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
 			pcHeader.put("Accept-Language", "zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2");
 		}
