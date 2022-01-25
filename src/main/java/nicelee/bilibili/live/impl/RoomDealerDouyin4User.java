@@ -44,18 +44,9 @@ public class RoomDealerDouyin4User extends RoomDealer {
 
 				String location = conn.getHeaderField("Location");
 				Logger.println("Location: " + location);
-				if(location.startsWith("https://www.iesdouyin.com")) {
+				int redirects = 0;
+				while (redirects < 5 && (location.startsWith("https://webcast.amemv.com") || location.startsWith("https://www.iesdouyin.com"))) {
 					// https://www.iesdouyin.com/share/live/6825590732829657870?anchor_id=59592712724
-					url = new URL(location);
-					conn = (HttpURLConnection) url.openConnection();
-					conn.setInstanceFollowRedirects(false);
-					conn.setRequestProperty("User-Agent",
-							"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:86.0) Gecko/20100101 Firefox/86.0");
-					conn.connect();
-					location = conn.getHeaderField("Location");
-					Logger.println(location);
-				}
-				if(location.startsWith("https://webcast.amemv.com")) {
 					// https://webcast.amemv.com/webcast/reflow/6825590732829657870
 					url = new URL(location);
 					conn = (HttpURLConnection) url.openConnection();
@@ -64,7 +55,12 @@ public class RoomDealerDouyin4User extends RoomDealer {
 							"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:86.0) Gecko/20100101 Firefox/86.0");
 					conn.connect();
 					location = conn.getHeaderField("Location");
+					if (location.startsWith("/")) {
+						URL locationUrl = new URL(url, location);
+						location = locationUrl.toString();
+					}
 					Logger.println("Location: " + location);
+					redirects++;
 				}
 				// e.g. https://live.douyin.com/4795593332 ...
 				Matcher matcher = pShortId.matcher(location);
