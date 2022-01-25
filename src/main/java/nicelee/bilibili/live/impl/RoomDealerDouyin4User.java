@@ -68,8 +68,12 @@ public class RoomDealerDouyin4User extends RoomDealer {
 				}
 				// e.g. https://live.douyin.com/4795593332 ...
 				Matcher matcher = pShortId.matcher(location);
-				if (matcher.find())
+				if (matcher.find()) {
 					shortId = matcher.group(1);
+				} else {
+					System.err.println("Could not parse shortId!");
+					System.exit(-1);
+				}
 			} catch (IOException e) {
 				System.err.println("不支持这种短链接的解析!!");
 				System.exit(-1);
