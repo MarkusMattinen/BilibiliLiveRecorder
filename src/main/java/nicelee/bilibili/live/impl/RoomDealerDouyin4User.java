@@ -23,6 +23,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 
 	final static Pattern pJson = Pattern.compile("<script id=\"RENDER_DATA\".*>(.*?)</script></head>");
 	final static Pattern pShortId = Pattern.compile("live.douyin.com/([0-9]+)");
+	final static Pattern pReflow = Pattern.compile("https://webcast.amemv.com/douyin/webcast/reflow/([0-9]+)");
 
 	final static Pattern pJsonMobile = Pattern.compile("<script>window.__INIT_PROPS__ *= *(.*?)</script>");
 	@Override
@@ -45,39 +46,90 @@ public class RoomDealerDouyin4User extends RoomDealer {
 
 				String location = conn.getHeaderField("Location");
 				Logger.println("Location: " + location);
-				int redirects = 0;
-				while (redirects < 5 && (location.startsWith("https://webcast.amemv.com") || location.startsWith("https://www.iesdouyin.com"))) {
-					// https://www.iesdouyin.com/share/live/6825590732829657870?anchor_id=59592712724
-					// https://webcast.amemv.com/webcast/reflow/6825590732829657870
-					url = new URL(location);
-					conn = (HttpURLConnection) url.openConnection();
-					conn.setInstanceFollowRedirects(false);
-					conn.setRequestProperty("User-Agent", userAgent);
-					conn.connect();
-					location = conn.getHeaderField("Location");
-					if (location == null) {
-						Logger.println(conn.getResponseMessage() + " " + conn.getResponseCode());
-						System.err.println("Location is null");
+
+				if (location != null && location.startsWith("https://webcast.amemv.com/douyin/webcast/reflow/")) {
+					Matcher reflowMatcher = pReflow.matcher(location);
+					if (reflowMatcher.find()) {
+						String longId = reflowMatcher.group(1);
+						String reflowUrl = "https://webcast.amemv.com/webcast/room/reflow/info/?type_id=0&live_id=1&room_id=" + longId + "&app_id=1128";
+						String json_str = util.getContent(reflowUrl, getPCHeader());
+						JSONObject json = new JSONObject(json_str);
+						RoomInfo roomInfo = new RoomInfo();
+
+						JSONObject room = json.getJSONObject("data").getJSONObject("room");
+						JSONObject anchor = room.getJSONObject("owner");
+						shortId = anchor.getString("web_rid");
+						roomInfo.setShortId(shortId);
+						roomInfo.setRoomId(shortId);
+						JSONObject stream_url = room.optJSONObject("stream_url");
+
+						roomInfo.setUserName(anchor.getString("nickname"));
+						roomInfo.setUserId(anchor.getLong("id"));
+						roomInfo.setTitle(room.getString("title"));
+						roomInfo.setDescription(anchor.getString("nickname") + " 的直播间");
+
+						if (stream_url == null) {
+							if(room.getInt("status") == 2) {
+								// 说明仍然在直播，只是PC端不让播放
+								Logger.println("当前直播仅支持移动端播放");
+								String webcastId = room.getString("id_str");
+								roomInfo.setRemark(webcastId);
+								roomInfo.setLiveStatus(1);
+								String html = util.getContent("https://webcast.amemv.com/webcast/reflow/" + webcastId, getMobileHeader());
+
+								Matcher matcher = pJsonMobile.matcher(html);
+								matcher.find();
+								json = new JSONObject(matcher.group(1)).getJSONObject("/webcast/reflow/:id")
+										.getJSONObject("room");
+								stream_url = json.getJSONObject("stream_url");
+								JSONArray jArray = stream_url.getJSONObject("live_core_sdk_data").getJSONObject("pull_data")
+										.getJSONObject("options").getJSONArray("qualities");
+								int qualityLen = jArray.length();
+								String[] qn = new String[qualityLen];
+								String[] qnDesc = new String[qualityLen];
+								for (int i = 0; i < qualityLen; i++) {
+									JSONObject obj = jArray.getJSONObject(i);
+									int level = obj.optInt("level");
+									qn[i] = "" + i;
+									qnDesc[qualityLen - level] = obj.getString("name");
+								}
+								roomInfo.setAcceptQuality(qn);
+								roomInfo.setAcceptQualityDesc(qnDesc);
+							} else {
+								roomInfo.setLiveStatus(0);
+							}
+						} else {
+							roomInfo.setLiveStatus(1);
+							JSONArray flv_sources = stream_url.getJSONObject("live_core_sdk_data").getJSONObject("pull_data")
+									.getJSONObject("options").getJSONArray("qualities");
+							int flv_sources_len = flv_sources.length();
+							String[] qn = new String[flv_sources_len];
+							String[] qnDesc = new String[flv_sources_len];
+							for (int i = 0; i < flv_sources_len; i++) {
+								// 为了让0, 1, 2, 3 数字越小清晰度越高
+								JSONObject obj = flv_sources.getJSONObject(i);
+								int level = obj.getInt("level");
+								qn[i] = "" + i;
+								qnDesc[flv_sources_len - level] = obj.getString("name");
+							}
+							roomInfo.setAcceptQuality(qn);
+							roomInfo.setAcceptQualityDesc(qnDesc);
+						}
+
+						roomInfo.print();
+						return roomInfo;
+					} else {
+						System.err.println("Could not parse longId!");
 						System.exit(-1);
 					}
-					if (location.startsWith("/")) {
-						URL locationUrl = new URL(url, location);
-						location = locationUrl.toString();
-					}
-					Logger.println("Location: " + location);
-					redirects++;
-				}
-				// e.g. https://live.douyin.com/4795593332 ...
-				Matcher matcher = pShortId.matcher(location);
-				if (matcher.find()) {
-					shortId = matcher.group(1);
 				} else {
-					System.err.println("Could not parse shortId!");
+					System.err.println("Unexpected location!");
 					System.exit(-1);
 				}
-			} catch (IOException e) {
-				System.err.println("不支持这种短链接的解析!!");
-				System.exit(-1);
+			} catch (Exception e) {
+				e.printStackTrace();
+				System.err.println("抖音需要cookie, 请确认cookie是否存在或失效");
+				return null;
 			}
 		}
 
