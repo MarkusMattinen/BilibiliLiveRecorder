@@ -57,6 +57,12 @@ public class RoomDealerDouyin4User extends RoomDealer {
 						RoomInfo roomInfo = new RoomInfo();
 
 						JSONObject room = json.getJSONObject("data").getJSONObject("room");
+
+						if(room.getInt("status") == 4) {
+							System.err.println("Stream has finished");
+							System.exit(-1);
+						}
+
 						JSONObject anchor = room.getJSONObject("owner");
 						shortId = anchor.getString("web_rid");
 						roomInfo.setShortId(shortId);
