@@ -129,7 +129,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 			} catch (Exception e) {
 				e.printStackTrace();
 				System.err.println("抖音需要cookie, 请确认cookie是否存在或失效");
-				return null;
+				System.exit(-1);
 			}
 		}
 
@@ -208,7 +208,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		} catch (Exception e) {
 			e.printStackTrace();
 			System.err.println("抖音需要cookie, 请确认cookie是否存在或失效");
-			return null;
+			System.exit(-1);
 		}
 		return roomInfo;
 	}
@@ -239,6 +239,11 @@ public class RoomDealerDouyin4User extends RoomDealer {
 				stream_url = info.getJSONObject("room").optJSONObject("stream_url");
 			}
 
+			if (stream_url == null) {
+				System.err.println("No stream URL");
+				System.exit(-1);
+			}
+
 			JSONArray flv_sources = stream_url.getJSONObject("live_core_sdk_data").getJSONObject("pull_data")
 					.getJSONObject("options").getJSONArray("qualities");
 			int flv_sources_len = flv_sources.length();
@@ -261,8 +266,9 @@ public class RoomDealerDouyin4User extends RoomDealer {
 			return link;
 		} catch (Exception e) {
 			e.printStackTrace();
-			return null;
+			System.exit(-1);
 		}
+		return null;
 	}
 
 	/**
