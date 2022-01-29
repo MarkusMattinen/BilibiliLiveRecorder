@@ -224,7 +224,9 @@ public class RoomDealerDouyin4User extends RoomDealer {
 				
 				Matcher matcher = pJsonMobile.matcher(html);
 				matcher.find();
-				JSONObject json = new JSONObject(matcher.group(1)).getJSONObject("/webcast/reflow/:id")
+				String json_str = matcher.group(1);
+				Logger.println(json_str);
+				JSONObject json = new JSONObject(json_str).getJSONObject("/webcast/reflow/:id")
 						.getJSONObject("room");
 				stream_url = json.getJSONObject("stream_url");
 			}else {
@@ -234,6 +236,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 				Matcher matcher = pJson.matcher(html);
 				matcher.find();
 				String json_str = URLDecoder.decode(matcher.group(1), "UTF-8");
+				Logger.println(json_str);
 				JSONObject json = new JSONObject(json_str);
 				JSONObject info = json.getJSONObject("initialState").getJSONObject("roomStore").getJSONObject("roomInfo");
 				stream_url = info.getJSONObject("room").optJSONObject("stream_url");
