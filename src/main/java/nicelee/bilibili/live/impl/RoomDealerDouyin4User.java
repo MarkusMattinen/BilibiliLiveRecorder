@@ -55,6 +55,11 @@ public class RoomDealerDouyin4User extends RoomDealer {
 					conn.setRequestProperty("User-Agent", userAgent);
 					conn.connect();
 					location = conn.getHeaderField("Location");
+					if (location == null) {
+						Logger.println(conn.getResponseMessage() + " " + conn.getResponseCode());
+						System.err.println("Location is null");
+						System.exit(-1);
+					}
 					if (location.startsWith("/")) {
 						URL locationUrl = new URL(url, location);
 						location = locationUrl.toString();
