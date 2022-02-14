@@ -60,7 +60,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 
 						if(room.getInt("status") == 4) {
 							System.err.println("Stream has finished");
-							System.exit(-1);
+							return null;
 						}
 
 						JSONObject anchor = room.getJSONObject("owner");
@@ -126,16 +126,16 @@ public class RoomDealerDouyin4User extends RoomDealer {
 						return roomInfo;
 					} else {
 						System.err.println("Could not parse longId!");
-						System.exit(-1);
+						return null;
 					}
 				} else {
 					System.err.println("Unexpected location!");
-					System.exit(-1);
+					return null;
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
 				System.err.println("抖音需要cookie, 请确认cookie是否存在或失效");
-				System.exit(-1);
+				return null;
 			}
 		}
 
@@ -214,7 +214,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		} catch (Exception e) {
 			e.printStackTrace();
 			System.err.println("抖音需要cookie, 请确认cookie是否存在或失效");
-			System.exit(-1);
+			return null;
 		}
 		return roomInfo;
 	}
@@ -227,7 +227,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 			if(webcastId != null) {
 				Logger.println("请求仅能在移动端播放的链接");
 				String html = util.getContent("https://webcast.amemv.com/webcast/reflow/" + webcastId, getMobileHeader());
-				
+
 				Matcher matcher = pJsonMobile.matcher(html);
 				matcher.find();
 				String json_str = matcher.group(1);
@@ -238,7 +238,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 			}else {
 				Logger.println("请求PC Web端播放的链接");
 				String html = util.getContent("https://live.douyin.com/" + roomId, getPCHeader(), HttpCookies.convertCookies(cookie));
-	
+
 				Matcher matcher = pJson.matcher(html);
 				matcher.find();
 				String json_str = URLDecoder.decode(matcher.group(1), "UTF-8");
@@ -250,7 +250,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 
 			if (stream_url == null) {
 				System.err.println("No stream URL");
-				System.exit(-1);
+				return null;
 			}
 
 			JSONArray flv_sources = stream_url.getJSONObject("live_core_sdk_data").getJSONObject("pull_data")
@@ -275,14 +275,13 @@ public class RoomDealerDouyin4User extends RoomDealer {
 			return link;
 		} catch (Exception e) {
 			e.printStackTrace();
-			System.exit(-1);
+			return null;
 		}
-		return null;
 	}
 
 	/**
 	 * 开始录制
-	 * 
+	 *
 	 * @param url
 	 * @param fileName
 	 * @param shortId
