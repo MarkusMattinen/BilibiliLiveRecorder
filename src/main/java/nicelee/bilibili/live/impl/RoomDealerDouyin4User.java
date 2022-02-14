@@ -52,7 +52,18 @@ public class RoomDealerDouyin4User extends RoomDealer {
 					if (reflowMatcher.find()) {
 						String longId = reflowMatcher.group(1);
 						String reflowUrl = "https://webcast.amemv.com/webcast/room/reflow/info/?type_id=0&live_id=1&room_id=" + longId + "&app_id=1128";
-						String json_str = util.getContent(reflowUrl, getPCHeader());
+						String json_str = "";
+						int attempt = 0;
+						while (attempt < 5 && json_str.length() < 10) {
+							Logger.println("Get: " + reflowUrl);
+							json_str = util.getContent(reflowUrl, getPCHeader());
+							attempt++;
+
+							if (json_str.length() < 10) {
+								Thread.sleep(1000);
+							}
+						}
+						Logger.println(json_str);
 						JSONObject json = new JSONObject(json_str);
 						RoomInfo roomInfo = new RoomInfo();
 
