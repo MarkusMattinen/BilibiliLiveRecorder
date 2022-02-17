@@ -36,16 +36,46 @@ public class RoomDealerDouyin4User extends RoomDealer {
 	 * @return
 	 */
 	@Override
-	public RoomInfo getRoomInfo(String shortId) {
-		if (shortId.startsWith("https://v.douyin.com")) {
+	public RoomInfo getRoomInfo(String shortUrl) {
+		String shortId = null;
+		if (shortUrl.startsWith("https://v.douyin.com")) {
 			try {
-				URL url = new URL(shortId);
+				URL url = new URL(shortUrl);
 				HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 				conn.setInstanceFollowRedirects(false);
 				conn.connect();
 
 				String location = conn.getHeaderField("Location");
 				Logger.println("Location: " + location);
+
+				if (location != null && location.startsWith("https://webcast.amemv.com/webcast/reflow/")) {
+					// https://webcast.amemv.com/webcast/reflow/6825590732829657870
+					url = new URL(location);
+					conn = (HttpURLConnection) url.openConnection();
+					conn.setInstanceFollowRedirects(false);
+					conn.setRequestProperty("User-Agent", userAgent);
+					conn.connect();
+					location = conn.getHeaderField("Location");
+					if (location == null) {
+						Logger.println(conn.getResponseMessage() + " " + conn.getResponseCode());
+						System.err.println("Location is null");
+						return null;
+					}
+					if (location.startsWith("/")) {
+						URL locationUrl = new URL(url, location);
+						location = locationUrl.toString();
+					}
+					Logger.println("Location: " + location);
+
+					// e.g. https://live.douyin.com/4795593332 ...
+					Matcher matcher = pShortId.matcher(location);
+					if (matcher.find()) {
+						shortId = matcher.group(1);
+					} else {
+						System.err.println("Could not parse shortId!");
+						return null;
+					}
+				}
 
 				if (location != null && location.startsWith("https://webcast.amemv.com/douyin/webcast/reflow/")) {
 					Matcher reflowMatcher = pReflow.matcher(location);
@@ -139,15 +169,18 @@ public class RoomDealerDouyin4User extends RoomDealer {
 						System.err.println("Could not parse longId!");
 						return null;
 					}
-				} else {
-					System.err.println("Unexpected location!");
-					return null;
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
 				System.err.println("抖音需要cookie, 请确认cookie是否存在或失效");
 				return null;
 			}
+		} else {
+			shortId = shortUrl;
+		}
+
+		if (shortId == null) {
+			return null;
 		}
 
 		RoomInfo roomInfo = new RoomInfo();
