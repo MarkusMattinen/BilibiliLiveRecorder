@@ -1,7 +1,10 @@
 package nicelee.bilibili.live.impl;
 
+import java.io.UnsupportedEncodingException;
 import java.io.IOException;
+import java.lang.InterruptedException;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.util.HashMap;
@@ -182,7 +185,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		return mobileHeader;
 	}
 
-	private RoomInfo getRoomInfoFromLongId(String longId) {
+	private RoomInfo getRoomInfoFromLongId(String longId) throws InterruptedException {
 		RoomInfo roomInfo = new RoomInfo();
 		String reflowUrl = "https://webcast.amemv.com/webcast/room/reflow/info/?type_id=0&live_id=1&room_id=" + longId + "&app_id=1128";
 		JSONObject json = fetchJson(reflowUrl);
@@ -235,7 +238,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		return roomInfo;
 	}
 
-	private RoomInfo getRoomInfoFromShortId(String shortId) {
+	private RoomInfo getRoomInfoFromShortId(String shortId) throws UnsupportedEncodingException {
 		RoomInfo roomInfo = new RoomInfo();
 		roomInfo.setShortId(shortId);
 		roomInfo.setRoomId(shortId);
@@ -296,7 +299,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		processQualities(roomInfo, stream_url);
 	}
 
-	private String fetchNextLocation(String urlStr) {
+	private String fetchNextLocation(String urlStr) throws MalformedURLException, IOException {
 		URL url = new URL(urlStr);
 		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 		conn.setInstanceFollowRedirects(false);
@@ -320,7 +323,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		return location;
 	}
 
-	private JSONObject fetchJson(String urlStr) {
+	private JSONObject fetchJson(String urlStr) throws InterruptedException {
 		String jsonStr = "";
 		int attempt = 0;
 		while (attempt < 5) {
