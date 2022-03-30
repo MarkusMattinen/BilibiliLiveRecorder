@@ -221,6 +221,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		roomInfo.setUserId(anchor.getLong("id"));
 		roomInfo.setTitle(room.getString("title"));
 		roomInfo.setDescription(anchor.getString("nickname") + " 的直播间");
+		logRoom(room);
 
 		if (stream_url == null) {
 			if(room.getInt("status") == 2) {
@@ -262,6 +263,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		roomInfo.setUserId(anchor.optLong("id_str"));
 		roomInfo.setTitle(room.getString("title"));
 		roomInfo.setDescription(anchor.getString("nickname") + " 的直播间");
+		logRoom(room);
 
 		if (stream_url == null) {
 			if (room.getInt("status") == 2) {
@@ -367,5 +369,15 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		} else {
 			return null;
 		}
+	}
+
+	private void logRoom(JSONObject room) {
+		JSONObject anchor = room.getJSONObject("owner");
+		Logger.println("Nickname=" + anchor.getString("nickname"));
+		Logger.println("UserId=" + anchor.getString("display_id"));
+		Logger.println("Title=" + room.getString("title"));
+		Logger.println("Signature=" + anchor.getString("signature"));
+		Logger.println("UserCity=" + anchor.getString("city"));
+		Logger.println("LocationCity=" + anchor.getString("location_city"));
 	}
 }
