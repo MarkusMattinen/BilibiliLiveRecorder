@@ -373,12 +373,14 @@ public class RoomDealerDouyin4User extends RoomDealer {
 	}
 
 	private void logRoom(JSONObject room) {
+		JSONObject metadata = new JSONObject();
 		JSONObject anchor = room.getJSONObject("owner");
-		Logger.println("Nickname=" + anchor.getString("nickname"));
-		Logger.println("UserId=" + anchor.getString("display_id"));
-		Logger.println("Title=" + room.getString("title"));
-		Logger.println("Signature=" + anchor.getString("signature"));
-		Logger.println("UserCity=" + anchor.getString("city"));
-		Logger.println("LocationCity=" + anchor.getString("location_city"));
+		metadata.put("nickname", anchor.getString("nickname"));
+		metadata.put("displayId", anchor.getString("display_id"));
+		metadata.put("title", room.getString("title"));
+		metadata.put("signature", anchor.getString("signature"));
+		metadata.put("userCity", anchor.getString("city"));
+		metadata.put("locationCity", anchor.getString("location_city"));
+		Logger.println("Metadata=" + metadata.toString());
 	}
 }
