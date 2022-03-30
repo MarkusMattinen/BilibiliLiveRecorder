@@ -239,45 +239,41 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		RoomInfo roomInfo = new RoomInfo();
 		roomInfo.setShortId(shortId);
 		roomInfo.setRoomId(shortId);
-		try {
-			String urlStr = "https://live.douyin.com/" + shortId;
-			Logger.println("Get: " + urlStr);
-			String html = util.getContent(urlStr, getPCHeader(), HttpCookies.convertCookies(cookie));
-			// Logger.println(html);
 
-			String encodedJson = tryMatch(html, pJson);
-			String jsonStr = URLDecoder.decode(encodedJson, "UTF-8");
-			Logger.println(jsonStr);
+		String urlStr = "https://live.douyin.com/" + shortId;
+		Logger.println("Get: " + urlStr);
+		String html = util.getContent(urlStr, getPCHeader(), HttpCookies.convertCookies(cookie));
+		// Logger.println(html);
 
-			JSONObject json = new JSONObject(jsonStr);
-			JSONObject info = json.getJSONObject("initialState").getJSONObject("roomStore").getJSONObject("roomInfo");
-			JSONObject room = info.getJSONObject("room");
-			JSONObject anchor = info.getJSONObject("anchor");
-			JSONObject stream_url = room.optJSONObject("stream_url");
+		String encodedJson = tryMatch(html, pJson);
+		String jsonStr = URLDecoder.decode(encodedJson, "UTF-8");
+		Logger.println(jsonStr);
 
-			roomInfo.setUserName(anchor.getString("nickname"));
-			roomInfo.setUserId(anchor.optLong("id_str"));
-			roomInfo.setTitle(room.getString("title"));
-			roomInfo.setDescription(anchor.getString("nickname") + " 的直播间");
+		JSONObject json = new JSONObject(jsonStr);
+		JSONObject info = json.getJSONObject("initialState").getJSONObject("roomStore").getJSONObject("roomInfo");
+		JSONObject room = info.getJSONObject("room");
+		JSONObject anchor = info.getJSONObject("anchor");
+		JSONObject stream_url = room.optJSONObject("stream_url");
 
-			if (stream_url == null) {
-				if (room.getInt("status") == 2) {
-					String webcastId = room.getString("id_str");
-					processRoomInfoForWebcast(roomInfo, webcastId);
-				} else {
-					roomInfo.setLiveStatus(0);
-				}
+		roomInfo.setUserName(anchor.getString("nickname"));
+		roomInfo.setUserId(anchor.optLong("id_str"));
+		roomInfo.setTitle(room.getString("title"));
+		roomInfo.setDescription(anchor.getString("nickname") + " 的直播间");
+
+		if (stream_url == null) {
+			if (room.getInt("status") == 2) {
+				String webcastId = room.getString("id_str");
+				processRoomInfoForWebcast(roomInfo, webcastId);
 			} else {
-				roomInfo.setLiveStatus(1);
-				processQualities(roomInfo, stream_url);
+				roomInfo.setLiveStatus(0);
 			}
-
-			roomInfo.print();
-		} catch (Exception e) {
-			e.printStackTrace();
-			System.err.println("getRoomInfo: 抖音需要cookie, 请确认cookie是否存在或失效");
-			return null;
+		} else {
+			roomInfo.setLiveStatus(1);
+			processQualities(roomInfo, stream_url);
 		}
+
+		roomInfo.print();
+		return roomInfo;
 	}
 
 	private void processRoomInfoForWebcast(RoomInfo roomInfo, String webcastId) {
