@@ -31,195 +31,6 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		return ".flv";
 	}
 
-	private String fetchNextLocation(String urlStr) {
-		URL url = new URL(urlStr);
-		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-		conn.setInstanceFollowRedirects(false);
-		conn.setRequestProperty("User-Agent", userAgent);
-		conn.connect();
-
-		String location = conn.getHeaderField("Location");
-
-		if (location == null) {
-			Logger.println("Location is null: " + conn.getResponseMessage() + " " + conn.getResponseCode());
-			return null;
-		}
-
-		if (location.startsWith("/")) {
-			URL locationUrl = new URL(url, location);
-			location = locationUrl.toString();
-		}
-
-		Logger.println("Location: " + location);
-
-		return location;
-	}
-
-	private String tryMatch(String location, Pattern pattern) {
-		Matcher matcher = pattern.matcher(location);
-		if (matcher.find()) {
-			return matcher.group(1);
-		} else {
-			return null;
-		}
-	}
-
-	private JSONObject fetchJson(String urlStr) {
-		String jsonStr = "";
-		int attempt = 0;
-		while (attempt < 5) {
-			Logger.println("Get: " + urlStr);
-			jsonStr = util.getContent(urlStr, getPCHeader());
-
-			if (jsonStr.length() > 10) {
-				Logger.println(jsonStr);
-				JSONObject json = new JSONObject(jsonStr);
-
-				return json;
-			}
-
-			attempt++;
-			Thread.sleep(1000);
-		}
-
-		return null;
-	}
-
-	private void processQualities(RoomInfo roomInfo, JSONObject stream_url) {
-		JSONArray flv_sources = stream_url.getJSONObject("live_core_sdk_data").getJSONObject("pull_data").getJSONObject("options").getJSONArray("qualities");
-		int flv_sources_len = flv_sources.length();
-		String[] qn = new String[flv_sources_len];
-		String[] qnDesc = new String[flv_sources_len];
-		for (int i = 0; i < flv_sources_len; i++) {
-			// 为了让0, 1, 2, 3 数字越小清晰度越高
-			JSONObject obj = flv_sources.getJSONObject(i);
-			int level = obj.getInt("level");
-			qn[i] = "" + i;
-			qnDesc[flv_sources_len - level] = obj.getString("name");
-		}
-		roomInfo.setAcceptQuality(qn);
-		roomInfo.setAcceptQualityDesc(qnDesc);
-	}
-
-	private RoomInfo getRoomInfoFromLongId(String longId) {
-		RoomInfo roomInfo = new RoomInfo();
-		String reflowUrl = "https://webcast.amemv.com/webcast/room/reflow/info/?type_id=0&live_id=1&room_id=" + longId + "&app_id=1128";
-		JSONObject json = fetchJson(reflowUrl);
-		if(json == null) {
-			System.err.println("getRoomInfo: Failed to fetch JSON");
-			return null;
-		}
-
-		JSONObject room = json.getJSONObject("data").getJSONObject("room");
-		JSONObject anchor = room.getJSONObject("owner");
-		JSONObject stream_url = room.optJSONObject("stream_url");
-
-		if(room.getInt("status") == 4) {
-			System.err.println("getRoomInfo: Stream has finished");
-			return null;
-		}
-
-		shortId = anchor.getString("web_rid");
-		roomInfo.setShortId(shortId);
-		roomInfo.setRoomId(shortId);
-		roomInfo.setUserName(anchor.getString("nickname"));
-		roomInfo.setUserId(anchor.getLong("id"));
-		roomInfo.setTitle(room.getString("title"));
-		roomInfo.setDescription(anchor.getString("nickname") + " 的直播间");
-
-		if (stream_url == null) {
-			if(room.getInt("status") == 2) {
-				// 说明仍然在直播，只是PC端不让播放
-				Logger.println("当前直播仅支持移动端播放");
-				String webcastId = room.getString("id_str");
-				roomInfo.setRemark(webcastId);
-				roomInfo.setLiveStatus(1);
-
-				String urlStr = "https://webcast.amemv.com/webcast/reflow/" + webcastId;
-				Logger.println("Get: " + urlStr);
-				String html = util.getContent(urlStr, getMobileHeader());
-
-				String jsonStr = tryMatch(html, pJsonMobile);
-				Logger.println(jsonStr);
-
-				json = new JSONObject(jsonStr);
-				room = json.getJSONObject("/webcast/reflow/:id").getJSONObject("room");
-				stream_url = room.getJSONObject("stream_url");
-
-				processQualities(roomInfo, stream_url);
-			} else {
-				roomInfo.setLiveStatus(0);
-			}
-		} else {
-			roomInfo.setLiveStatus(1);
-			processQualities(roomInfo, stream_url);
-		}
-
-		roomInfo.print();
-		return roomInfo;
-	}
-
-	private RoomInfo getRoomInfoFromShortId(String shortId) {
-		RoomInfo roomInfo = new RoomInfo();
-		roomInfo.setShortId(shortId);
-		roomInfo.setRoomId(shortId);
-		try {
-			String urlStr = "https://live.douyin.com/" + shortId;
-			Logger.println("Get: " + urlStr);
-			String html = util.getContent(urlStr, getPCHeader(), HttpCookies.convertCookies(cookie));
-			// Logger.println(html);
-
-			String encodedJson = tryMatch(html, pJson);
-			String jsonStr = URLDecoder.decode(encodedJson, "UTF-8");
-			Logger.println(jsonStr);
-
-			JSONObject json = new JSONObject(jsonStr);
-			JSONObject info = json.getJSONObject("initialState").getJSONObject("roomStore").getJSONObject("roomInfo");
-			JSONObject room = info.getJSONObject("room");
-			JSONObject anchor = info.getJSONObject("anchor");
-			JSONObject stream_url = room.optJSONObject("stream_url");
-
-			roomInfo.setUserName(anchor.getString("nickname"));
-			roomInfo.setUserId(anchor.optLong("id_str"));
-			roomInfo.setTitle(room.getString("title"));
-			roomInfo.setDescription(anchor.getString("nickname") + " 的直播间");
-
-			if (stream_url == null) {
-				if (room.getInt("status") == 2) {
-					// 说明仍然在直播，只是PC端不让播放
-					Logger.println("当前直播仅支持移动端播放");
-					String webcastId = room.getString("id_str");
-					roomInfo.setRemark(webcastId);
-					roomInfo.setLiveStatus(1);
-
-					urlStr = "https://webcast.amemv.com/webcast/reflow/" + webcastId;
-					Logger.println("Get: " + urlStr);
-					html = util.getContent(urlStr, getMobileHeader());
-
-					jsonStr = tryMatch(html, pJsonMobile);
-					Logger.println(jsonStr);
-
-					json = new JSONObject(jsonStr);
-					room = json.getJSONObject("/webcast/reflow/:id").getJSONObject("room");
-					stream_url = room.getJSONObject("stream_url");
-
-					processQualities(roomInfo, stream_url);
-				} else {
-					roomInfo.setLiveStatus(0);
-				}
-			} else {
-				roomInfo.setLiveStatus(1);
-				processQualities(roomInfo, stream_url);
-			}
-
-			roomInfo.print();
-		} catch (Exception e) {
-			e.printStackTrace();
-			System.err.println("getRoomInfo: 抖音需要cookie, 请确认cookie是否存在或失效");
-			return null;
-		}
-	}
-
 	/**
 	 * @param shortUrl
 	 * @return
@@ -371,4 +182,192 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		return mobileHeader;
 	}
 
+	private RoomInfo getRoomInfoFromLongId(String longId) {
+		RoomInfo roomInfo = new RoomInfo();
+		String reflowUrl = "https://webcast.amemv.com/webcast/room/reflow/info/?type_id=0&live_id=1&room_id=" + longId + "&app_id=1128";
+		JSONObject json = fetchJson(reflowUrl);
+		if(json == null) {
+			System.err.println("getRoomInfo: Failed to fetch JSON");
+			return null;
+		}
+
+		JSONObject room = json.getJSONObject("data").getJSONObject("room");
+		JSONObject anchor = room.getJSONObject("owner");
+		JSONObject stream_url = room.optJSONObject("stream_url");
+
+		if(room.getInt("status") == 4) {
+			System.err.println("getRoomInfo: Stream has finished");
+			return null;
+		}
+
+		shortId = anchor.getString("web_rid");
+		roomInfo.setShortId(shortId);
+		roomInfo.setRoomId(shortId);
+		roomInfo.setUserName(anchor.getString("nickname"));
+		roomInfo.setUserId(anchor.getLong("id"));
+		roomInfo.setTitle(room.getString("title"));
+		roomInfo.setDescription(anchor.getString("nickname") + " 的直播间");
+
+		if (stream_url == null) {
+			if(room.getInt("status") == 2) {
+				// 说明仍然在直播，只是PC端不让播放
+				Logger.println("当前直播仅支持移动端播放");
+				String webcastId = room.getString("id_str");
+				roomInfo.setRemark(webcastId);
+				roomInfo.setLiveStatus(1);
+
+				String urlStr = "https://webcast.amemv.com/webcast/reflow/" + webcastId;
+				Logger.println("Get: " + urlStr);
+				String html = util.getContent(urlStr, getMobileHeader());
+
+				String jsonStr = tryMatch(html, pJsonMobile);
+				Logger.println(jsonStr);
+
+				json = new JSONObject(jsonStr);
+				room = json.getJSONObject("/webcast/reflow/:id").getJSONObject("room");
+				stream_url = room.getJSONObject("stream_url");
+
+				processQualities(roomInfo, stream_url);
+			} else {
+				roomInfo.setLiveStatus(0);
+			}
+		} else {
+			roomInfo.setLiveStatus(1);
+			processQualities(roomInfo, stream_url);
+		}
+
+		roomInfo.print();
+		return roomInfo;
+	}
+
+	private RoomInfo getRoomInfoFromShortId(String shortId) {
+		RoomInfo roomInfo = new RoomInfo();
+		roomInfo.setShortId(shortId);
+		roomInfo.setRoomId(shortId);
+		try {
+			String urlStr = "https://live.douyin.com/" + shortId;
+			Logger.println("Get: " + urlStr);
+			String html = util.getContent(urlStr, getPCHeader(), HttpCookies.convertCookies(cookie));
+			// Logger.println(html);
+
+			String encodedJson = tryMatch(html, pJson);
+			String jsonStr = URLDecoder.decode(encodedJson, "UTF-8");
+			Logger.println(jsonStr);
+
+			JSONObject json = new JSONObject(jsonStr);
+			JSONObject info = json.getJSONObject("initialState").getJSONObject("roomStore").getJSONObject("roomInfo");
+			JSONObject room = info.getJSONObject("room");
+			JSONObject anchor = info.getJSONObject("anchor");
+			JSONObject stream_url = room.optJSONObject("stream_url");
+
+			roomInfo.setUserName(anchor.getString("nickname"));
+			roomInfo.setUserId(anchor.optLong("id_str"));
+			roomInfo.setTitle(room.getString("title"));
+			roomInfo.setDescription(anchor.getString("nickname") + " 的直播间");
+
+			if (stream_url == null) {
+				if (room.getInt("status") == 2) {
+					// 说明仍然在直播，只是PC端不让播放
+					Logger.println("当前直播仅支持移动端播放");
+					String webcastId = room.getString("id_str");
+					roomInfo.setRemark(webcastId);
+					roomInfo.setLiveStatus(1);
+
+					urlStr = "https://webcast.amemv.com/webcast/reflow/" + webcastId;
+					Logger.println("Get: " + urlStr);
+					html = util.getContent(urlStr, getMobileHeader());
+
+					jsonStr = tryMatch(html, pJsonMobile);
+					Logger.println(jsonStr);
+
+					json = new JSONObject(jsonStr);
+					room = json.getJSONObject("/webcast/reflow/:id").getJSONObject("room");
+					stream_url = room.getJSONObject("stream_url");
+
+					processQualities(roomInfo, stream_url);
+				} else {
+					roomInfo.setLiveStatus(0);
+				}
+			} else {
+				roomInfo.setLiveStatus(1);
+				processQualities(roomInfo, stream_url);
+			}
+
+			roomInfo.print();
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.err.println("getRoomInfo: 抖音需要cookie, 请确认cookie是否存在或失效");
+			return null;
+		}
+	}
+
+	private String fetchNextLocation(String urlStr) {
+		URL url = new URL(urlStr);
+		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+		conn.setInstanceFollowRedirects(false);
+		conn.setRequestProperty("User-Agent", userAgent);
+		conn.connect();
+
+		String location = conn.getHeaderField("Location");
+
+		if (location == null) {
+			Logger.println("Location is null: " + conn.getResponseMessage() + " " + conn.getResponseCode());
+			return null;
+		}
+
+		if (location.startsWith("/")) {
+			URL locationUrl = new URL(url, location);
+			location = locationUrl.toString();
+		}
+
+		Logger.println("Location: " + location);
+
+		return location;
+	}
+
+	private JSONObject fetchJson(String urlStr) {
+		String jsonStr = "";
+		int attempt = 0;
+		while (attempt < 5) {
+			Logger.println("Get: " + urlStr);
+			jsonStr = util.getContent(urlStr, getPCHeader());
+
+			if (jsonStr.length() > 10) {
+				Logger.println(jsonStr);
+				JSONObject json = new JSONObject(jsonStr);
+
+				return json;
+			}
+
+			attempt++;
+			Thread.sleep(1000);
+		}
+
+		return null;
+	}
+
+	private void processQualities(RoomInfo roomInfo, JSONObject stream_url) {
+		JSONArray flv_sources = stream_url.getJSONObject("live_core_sdk_data").getJSONObject("pull_data").getJSONObject("options").getJSONArray("qualities");
+		int flv_sources_len = flv_sources.length();
+		String[] qn = new String[flv_sources_len];
+		String[] qnDesc = new String[flv_sources_len];
+		for (int i = 0; i < flv_sources_len; i++) {
+			// 为了让0, 1, 2, 3 数字越小清晰度越高
+			JSONObject obj = flv_sources.getJSONObject(i);
+			int level = obj.getInt("level");
+			qn[i] = "" + i;
+			qnDesc[flv_sources_len - level] = obj.getString("name");
+		}
+		roomInfo.setAcceptQuality(qn);
+		roomInfo.setAcceptQualityDesc(qnDesc);
+	}
+
+	private String tryMatch(String location, Pattern pattern) {
+		Matcher matcher = pattern.matcher(location);
+		if (matcher.find()) {
+			return matcher.group(1);
+		} else {
+			return null;
+		}
+	}
 }
