@@ -101,107 +101,66 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		roomInfo.setAcceptQualityDesc(qnDesc);
 	}
 
-	/**
-	 * @param shortId
-	 * @return
-	 */
-	@Override
-	public RoomInfo getRoomInfo(String shortUrl) {
-		String shortId = shortUrl.startsWith("http") ? null : shortUrl;
+	private RoomInfo getRoomInfoFromLongId(String longId) {
 		RoomInfo roomInfo = new RoomInfo();
-
-		if (shortUrl.startsWith("https://v.douyin.com")) {
-			try {
-				String location = fetchNextLocation(shortUrl);
-
-				if (location != null && location.startsWith("https://webcast.amemv.com/webcast/reflow/")) {
-					// https://webcast.amemv.com/webcast/reflow/6825590732829657870
-					location = fetchNextLocation(location);
-				}
-
-				if (location != null && location.startsWith("https://webcast.amemv.com/douyin/webcast/reflow/")) {
-					String longId = tryMatch(location, pReflow);
-					if (longId == null) {
-						System.err.println("getRoomInfo: Could not parse longId!");
-						return null;
-					}
-
-					String reflowUrl = "https://webcast.amemv.com/webcast/room/reflow/info/?type_id=0&live_id=1&room_id=" + longId + "&app_id=1128";
-					JSONObject json = fetchJson(reflowUrl);
-					if(json == null) {
-						System.err.println("getRoomInfo: Failed to fetch JSON");
-						return null;
-					}
-
-					JSONObject room = json.getJSONObject("data").getJSONObject("room");
-					JSONObject anchor = room.getJSONObject("owner");
-					JSONObject stream_url = room.optJSONObject("stream_url");
-
-					if(room.getInt("status") == 4) {
-						System.err.println("getRoomInfo: Stream has finished");
-						return null;
-					}
-
-					shortId = anchor.getString("web_rid");
-					roomInfo.setShortId(shortId);
-					roomInfo.setRoomId(shortId);
-					roomInfo.setUserName(anchor.getString("nickname"));
-					roomInfo.setUserId(anchor.getLong("id"));
-					roomInfo.setTitle(room.getString("title"));
-					roomInfo.setDescription(anchor.getString("nickname") + " 的直播间");
-
-					if (stream_url == null) {
-						if(room.getInt("status") == 2) {
-							// 说明仍然在直播，只是PC端不让播放
-							Logger.println("当前直播仅支持移动端播放");
-							String webcastId = room.getString("id_str");
-							roomInfo.setRemark(webcastId);
-							roomInfo.setLiveStatus(1);
-
-							String urlStr = "https://webcast.amemv.com/webcast/reflow/" + webcastId;
-							Logger.println("Get: " + urlStr);
-							String html = util.getContent(urlStr, getMobileHeader());
-
-							String jsonStr = tryMatch(html, pJsonMobile);
-							Logger.println(jsonStr);
-
-							json = new JSONObject(jsonStr);
-							room = json.getJSONObject("/webcast/reflow/:id").getJSONObject("room");
-							stream_url = room.getJSONObject("stream_url");
-
-							processQualities(roomInfo, stream_url);
-						} else {
-							roomInfo.setLiveStatus(0);
-						}
-					} else {
-						roomInfo.setLiveStatus(1);
-						processQualities(roomInfo, stream_url);
-					}
-
-					roomInfo.print();
-					return roomInfo;
-				}
-
-				if (location != null && location.startsWith("https://live.douyin.com/")) {
-					// e.g. https://live.douyin.com/4795593332 ...
-					shortId = tryMatch(location, pShortId);
-					if (shortId == null) {
-						System.err.println("getRoomInfo: Could not parse shortId!");
-						return null;
-					}
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-				System.err.println("getRoomInfo: 抖音需要cookie, 请确认cookie是否存在或失效");
-				return null;
-			}
-		}
-
-		if (shortId == null) {
-			System.err.println("getRoomInfo: Could not resolve shortId");
+		String reflowUrl = "https://webcast.amemv.com/webcast/room/reflow/info/?type_id=0&live_id=1&room_id=" + longId + "&app_id=1128";
+		JSONObject json = fetchJson(reflowUrl);
+		if(json == null) {
+			System.err.println("getRoomInfo: Failed to fetch JSON");
 			return null;
 		}
 
+		JSONObject room = json.getJSONObject("data").getJSONObject("room");
+		JSONObject anchor = room.getJSONObject("owner");
+		JSONObject stream_url = room.optJSONObject("stream_url");
+
+		if(room.getInt("status") == 4) {
+			System.err.println("getRoomInfo: Stream has finished");
+			return null;
+		}
+
+		shortId = anchor.getString("web_rid");
+		roomInfo.setShortId(shortId);
+		roomInfo.setRoomId(shortId);
+		roomInfo.setUserName(anchor.getString("nickname"));
+		roomInfo.setUserId(anchor.getLong("id"));
+		roomInfo.setTitle(room.getString("title"));
+		roomInfo.setDescription(anchor.getString("nickname") + " 的直播间");
+
+		if (stream_url == null) {
+			if(room.getInt("status") == 2) {
+				// 说明仍然在直播，只是PC端不让播放
+				Logger.println("当前直播仅支持移动端播放");
+				String webcastId = room.getString("id_str");
+				roomInfo.setRemark(webcastId);
+				roomInfo.setLiveStatus(1);
+
+				String urlStr = "https://webcast.amemv.com/webcast/reflow/" + webcastId;
+				Logger.println("Get: " + urlStr);
+				String html = util.getContent(urlStr, getMobileHeader());
+
+				String jsonStr = tryMatch(html, pJsonMobile);
+				Logger.println(jsonStr);
+
+				json = new JSONObject(jsonStr);
+				room = json.getJSONObject("/webcast/reflow/:id").getJSONObject("room");
+				stream_url = room.getJSONObject("stream_url");
+
+				processQualities(roomInfo, stream_url);
+			} else {
+				roomInfo.setLiveStatus(0);
+			}
+		} else {
+			roomInfo.setLiveStatus(1);
+			processQualities(roomInfo, stream_url);
+		}
+
+		roomInfo.print();
+		return roomInfo;
+	}
+
+	private RoomInfo getRoomInfoFromShortId(String shortId) {
+		RoomInfo roomInfo = new RoomInfo();
 		roomInfo.setShortId(shortId);
 		roomInfo.setRoomId(shortId);
 		try {
@@ -259,8 +218,54 @@ public class RoomDealerDouyin4User extends RoomDealer {
 			System.err.println("getRoomInfo: 抖音需要cookie, 请确认cookie是否存在或失效");
 			return null;
 		}
+	}
 
-		return roomInfo;
+	/**
+	 * @param shortUrl
+	 * @return
+	 */
+	@Override
+	public RoomInfo getRoomInfo(String shortUrl) {
+		try {
+			if (!shortUrl.startsWith("http")) {
+				return getRoomInfoFromShortId(shortUrl);
+			}
+
+			if (shortUrl.startsWith("https://v.douyin.com")) {
+				String location = fetchNextLocation(shortUrl);
+
+				if (location != null && location.startsWith("https://webcast.amemv.com/webcast/reflow/")) {
+					location = fetchNextLocation(location);
+				}
+
+				if (location != null && location.startsWith("https://webcast.amemv.com/douyin/webcast/reflow/")) {
+					String longId = tryMatch(location, pReflow);
+					if (longId == null) {
+						System.err.println("getRoomInfo: Could not parse longId!");
+						return null;
+					}
+
+					return getRoomInfoFromLongId(longId);
+				}
+
+				if (location != null && location.startsWith("https://live.douyin.com/")) {
+					String shortId = tryMatch(location, pShortId);
+					if (shortId == null) {
+						System.err.println("getRoomInfo: Could not parse shortId!");
+						return null;
+					}
+
+					return getRoomInfoFromShortId(shortId);
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.err.println("getRoomInfo: 抖音需要cookie, 请确认cookie是否存在或失效");
+			return null;
+		}
+
+		System.err.println("getRoomInfo: Could not resolve shortUrl: " + shortUrl);
+		return null;
 	}
 
 	@Override
