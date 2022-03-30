@@ -211,7 +211,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 			return null;
 		}
 
-		shortId = anchor.getString("web_rid");
+		String shortId = anchor.getString("web_rid");
 		roomInfo.setShortId(shortId);
 		roomInfo.setRoomId(shortId);
 		roomInfo.setUserName(anchor.getString("nickname"));
@@ -221,24 +221,8 @@ public class RoomDealerDouyin4User extends RoomDealer {
 
 		if (stream_url == null) {
 			if(room.getInt("status") == 2) {
-				// 说明仍然在直播，只是PC端不让播放
-				Logger.println("当前直播仅支持移动端播放");
 				String webcastId = room.getString("id_str");
-				roomInfo.setRemark(webcastId);
-				roomInfo.setLiveStatus(1);
-
-				String urlStr = "https://webcast.amemv.com/webcast/reflow/" + webcastId;
-				Logger.println("Get: " + urlStr);
-				String html = util.getContent(urlStr, getMobileHeader());
-
-				String jsonStr = tryMatch(html, pJsonMobile);
-				Logger.println(jsonStr);
-
-				json = new JSONObject(jsonStr);
-				room = json.getJSONObject("/webcast/reflow/:id").getJSONObject("room");
-				stream_url = room.getJSONObject("stream_url");
-
-				processQualities(roomInfo, stream_url);
+				processRoomInfoForWebcast(roomInfo, webcastId);
 			} else {
 				roomInfo.setLiveStatus(0);
 			}
@@ -278,24 +262,8 @@ public class RoomDealerDouyin4User extends RoomDealer {
 
 			if (stream_url == null) {
 				if (room.getInt("status") == 2) {
-					// 说明仍然在直播，只是PC端不让播放
-					Logger.println("当前直播仅支持移动端播放");
 					String webcastId = room.getString("id_str");
-					roomInfo.setRemark(webcastId);
-					roomInfo.setLiveStatus(1);
-
-					urlStr = "https://webcast.amemv.com/webcast/reflow/" + webcastId;
-					Logger.println("Get: " + urlStr);
-					html = util.getContent(urlStr, getMobileHeader());
-
-					jsonStr = tryMatch(html, pJsonMobile);
-					Logger.println(jsonStr);
-
-					json = new JSONObject(jsonStr);
-					room = json.getJSONObject("/webcast/reflow/:id").getJSONObject("room");
-					stream_url = room.getJSONObject("stream_url");
-
-					processQualities(roomInfo, stream_url);
+					processRoomInfoForWebcast(roomInfo, webcastId);
 				} else {
 					roomInfo.setLiveStatus(0);
 				}
@@ -310,6 +278,26 @@ public class RoomDealerDouyin4User extends RoomDealer {
 			System.err.println("getRoomInfo: 抖音需要cookie, 请确认cookie是否存在或失效");
 			return null;
 		}
+	}
+
+	private void processRoomInfoForWebcast(RoomInfo roomInfo, String webcastId) {
+		// 说明仍然在直播，只是PC端不让播放
+		Logger.println("当前直播仅支持移动端播放");
+		roomInfo.setRemark(webcastId);
+		roomInfo.setLiveStatus(1);
+
+		String urlStr = "https://webcast.amemv.com/webcast/reflow/" + webcastId;
+		Logger.println("Get: " + urlStr);
+		String html = util.getContent(urlStr, getMobileHeader());
+
+		String jsonStr = tryMatch(html, pJsonMobile);
+		Logger.println(jsonStr);
+
+		JSONObject json = new JSONObject(jsonStr);
+		JSONObject room = json.getJSONObject("/webcast/reflow/:id").getJSONObject("room");
+		JSONObject stream_url = room.getJSONObject("stream_url");
+
+		processQualities(roomInfo, stream_url);
 	}
 
 	private String fetchNextLocation(String urlStr) {
