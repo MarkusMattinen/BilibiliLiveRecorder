@@ -161,6 +161,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 	public void startRecord(String url, String fileName, String shortId) {
 		HashMap<String, String> mobile = new HashMap<>();
 		mobile.put("User-Agent", "Mozilla/5.0 (Android 9.0; Mobile; rv:68.0) Gecko/68.0 Firefox/68.0");
+		Logger.println("Filename=" + fileName);
 		util.download(url, fileName + ".flv", mobile);
 	}
 
