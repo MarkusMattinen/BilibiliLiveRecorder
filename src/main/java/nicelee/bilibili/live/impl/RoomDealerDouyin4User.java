@@ -234,6 +234,10 @@ public class RoomDealerDouyin4User extends RoomDealer {
 			if (shortUrl.startsWith("https://v.douyin.com")) {
 				String location = fetchNextLocation(shortUrl);
 
+				if (location != null && location.startsWith("https://www.iesdouyin.com")) {
+					location = fetchNextLocation(location);
+				}
+
 				if (location != null && location.startsWith("https://webcast.amemv.com/webcast/reflow/")) {
 					location = fetchNextLocation(location);
 				}
