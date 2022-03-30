@@ -196,6 +196,17 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		JSONObject stream_url = room.optJSONObject("stream_url");
 
 		if(room.getInt("status") == 4) {
+			JSONArray ownRoomIds = anchor.getJSONObject("own_room").getJSONArray("room_ids_str");
+
+			if (ownRoomIds.length() > 0) {
+				String ownRoomId = ownRoomIds.getString(0)
+
+				if (ownRoomId != longId) {
+					System.err.println("getRoomInfo: Found new stream with id " + ownRoomId);
+					return getRoomInfoFromLongId(ownRoomId);
+				}
+			}
+
 			System.err.println("getRoomInfo: Stream has finished");
 			return null;
 		}
