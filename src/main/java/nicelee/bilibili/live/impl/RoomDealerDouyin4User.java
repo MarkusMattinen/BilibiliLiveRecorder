@@ -199,7 +199,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 			JSONArray ownRoomIds = anchor.getJSONObject("own_room").getJSONArray("room_ids_str");
 
 			if (ownRoomIds.length() > 0) {
-				String ownRoomId = ownRoomIds.getString(0)
+				String ownRoomId = ownRoomIds.getString(0);
 
 				if (ownRoomId != longId) {
 					System.err.println("getRoomInfo: Found new stream with id " + ownRoomId);
