@@ -26,7 +26,8 @@ public class RoomDealerDouyin4User extends RoomDealer {
 
 	final static Pattern pJson = Pattern.compile("<script id=\"RENDER_DATA\".*>(.*?)</script></head>");
 	final static Pattern pShortId = Pattern.compile("live.douyin.com/([0-9]+)");
-	final static Pattern pReflow = Pattern.compile("https://webcast.amemv.com/douyin/webcast/reflow/([0-9]+)");
+	final static Pattern pReflow1 = Pattern.compile("https://webcast.amemv.com/webcast/reflow/([0-9]+)");
+	final static Pattern pReflow2 = Pattern.compile("https://webcast.amemv.com/douyin/webcast/reflow/([0-9]+)");
 
 	final static Pattern pJsonMobile = Pattern.compile("<script>window.__INIT_PROPS__ *= *(.*?)</script>");
 	@Override
@@ -41,49 +42,12 @@ public class RoomDealerDouyin4User extends RoomDealer {
 	@Override
 	public RoomInfo getRoomInfo(String shortUrl) {
 		try {
-			if (!shortUrl.startsWith("http")) {
-				return getRoomInfoFromShortId(shortUrl);
-			}
-
-			if (shortUrl.startsWith("https://v.douyin.com")) {
-				String location = fetchNextLocation(shortUrl);
-
-				if (location != null && location.startsWith("https://www.iesdouyin.com")) {
-					location = fetchNextLocation(location);
-				}
-
-				if (location != null && location.startsWith("https://webcast.amemv.com/webcast/reflow/")) {
-					location = fetchNextLocation(location);
-				}
-
-				if (location != null && location.startsWith("https://webcast.amemv.com/douyin/webcast/reflow/")) {
-					String longId = tryMatch(location, pReflow);
-					if (longId == null) {
-						System.err.println("getRoomInfo: Could not parse longId!");
-						return null;
-					}
-
-					return getRoomInfoFromLongId(longId);
-				}
-
-				if (location != null && location.startsWith("https://live.douyin.com/")) {
-					String shortId = tryMatch(location, pShortId);
-					if (shortId == null) {
-						System.err.println("getRoomInfo: Could not parse shortId!");
-						return null;
-					}
-
-					return getRoomInfoFromShortId(shortId);
-				}
-			}
+			return handleReflow(shortUrl);
 		} catch (Exception e) {
 			e.printStackTrace();
 			System.err.println("getRoomInfo: 抖音需要cookie, 请确认cookie是否存在或失效");
 			return null;
 		}
-
-		System.err.println("getRoomInfo: Could not resolve shortUrl: " + shortUrl);
-		return null;
 	}
 
 	@Override
@@ -186,8 +150,69 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		return mobileHeader;
 	}
 
+	private RoomInfo handleReflow(String location) throws InterruptedException, UnsupportedEncodingException, MalformedURLException, IOException {
+		if (location == null) {
+			System.err.println("handleReflow: location is null");
+			return null;
+		}
+
+		if (!location.startsWith("http")) {
+			return getRoomInfoFromShortId(location);
+		}
+
+		if (location.startsWith("https://v.douyin.com")) {
+			String nextLocation = fetchNextLocation(location);
+			return handleReflow(nextLocation);
+		}
+
+		if (location.startsWith("https://www.iesdouyin.com")) {
+			String nextLocation = fetchNextLocation(location);
+			return handleReflow(nextLocation);
+		}
+
+		if (location.startsWith("https://webcast.amemv.com/webcast/reflow/")) {
+			// alternatife flow with less incomplete metadata, also does not always work:
+			// String nextLocation = fetchNextLocation(location);
+			// return handleReflow(nextLocation);
+
+			String longId = tryMatch(location, pReflow1);
+			if (longId == null) {
+				System.err.println("handleReflow: Could not parse longId!");
+				return null;
+			}
+
+			return getRoomInfoFromLongId(longId);
+		}
+
+		if (location.startsWith("https://webcast.amemv.com/douyin/webcast/reflow/")) {
+			// alternatife flow with less incomplete metadata, also does not always work:
+			// String nextLocation = fetchNextLocation(location);
+			// return handleReflow(nextLocation);
+
+			String longId = tryMatch(location, pReflow2);
+			if (longId == null) {
+				System.err.println("handleReflow: Could not parse longId!");
+				return null;
+			}
+
+			return getRoomInfoFromLongId(longId);
+		}
+
+		if (location.startsWith("https://live.douyin.com/")) {
+			String shortId = tryMatch(location, pShortId);
+			if (shortId == null) {
+				System.err.println("handleReflow: Could not parse shortId!");
+				return null;
+			}
+
+			return getRoomInfoFromShortId(shortId);
+		}
+
+		System.err.println("handeReflow: Unexpected location: " + location);
+		return null;
+	}
+
 	private RoomInfo getRoomInfoFromLongId(String longId) throws InterruptedException {
-		RoomInfo roomInfo = new RoomInfo();
 		String reflowUrl = "https://webcast.amemv.com/webcast/room/reflow/info/?type_id=0&live_id=1&room_id=" + longId + "&app_id=1128";
 		JSONObject json = fetchJson(reflowUrl);
 		if(json == null) {
@@ -197,7 +222,6 @@ public class RoomDealerDouyin4User extends RoomDealer {
 
 		JSONObject room = json.getJSONObject("data").getJSONObject("room");
 		JSONObject anchor = room.getJSONObject("owner");
-		JSONObject stream_url = room.optJSONObject("stream_url");
 
 		if(room.getInt("status") == 4) {
 			JSONObject ownRoomData = anchor.optJSONObject("own_room");
@@ -218,6 +242,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 			return null;
 		}
 
+		RoomInfo roomInfo = new RoomInfo();
 		String shortId = anchor.getString("web_rid");
 		roomInfo.setShortId(shortId);
 		roomInfo.setRoomId(shortId);
@@ -225,7 +250,8 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		roomInfo.setUserId(anchor.getLong("id"));
 		roomInfo.setTitle(room.getString("title"));
 		roomInfo.setDescription(anchor.getString("nickname") + " 的直播间");
-		logRoom(room);
+
+		JSONObject stream_url = room.optJSONObject("stream_url");
 
 		if (stream_url == null) {
 			if(room.getInt("status") == 2) {
@@ -240,6 +266,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		}
 
 		roomInfo.print();
+		logRoom(room);
 		return roomInfo;
 	}
 
