@@ -156,6 +156,8 @@ public class RoomDealerDouyin4User extends RoomDealer {
 			return null;
 		}
 
+		Logger.println("handleReflow: " + location);
+
 		if (!location.startsWith("http")) {
 			return getRoomInfoFromShortId(location);
 		}
@@ -213,6 +215,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 	}
 
 	private RoomInfo getRoomInfoFromLongId(String longId) throws InterruptedException {
+		Logger.println("getRoomInfoFromLongId: " + longId);
 		String reflowUrl = "https://webcast.amemv.com/webcast/room/reflow/info/?type_id=0&live_id=1&room_id=" + longId + "&app_id=1128";
 		JSONObject json = fetchJson(reflowUrl);
 		if(json == null) {
@@ -271,6 +274,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 	}
 
 	private RoomInfo getRoomInfoFromShortId(String shortId) throws UnsupportedEncodingException {
+		Logger.println("getRoomInfoFromShortId: " + shortId);
 		RoomInfo roomInfo = new RoomInfo();
 		roomInfo.setShortId(shortId);
 		roomInfo.setRoomId(shortId);
@@ -313,8 +317,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 	}
 
 	private void processRoomInfoForWebcast(RoomInfo roomInfo, String webcastId) {
-		// 说明仍然在直播，只是PC端不让播放
-		Logger.println("当前直播仅支持移动端播放");
+		Logger.println("processRoomInfoForWebcast: " + webcastId);
 		roomInfo.setRemark(webcastId);
 		roomInfo.setLiveStatus(1);
 
@@ -333,6 +336,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 	}
 
 	private String fetchNextLocation(String urlStr) throws MalformedURLException, IOException {
+		Logger.println("fetchNextLocation: " + urlStr);
 		URL url = new URL(urlStr);
 		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 		conn.setInstanceFollowRedirects(false);
@@ -342,7 +346,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		String location = conn.getHeaderField("Location");
 
 		if (location == null) {
-			Logger.println("Location is null: " + conn.getResponseMessage() + " " + conn.getResponseCode());
+			Logger.println("Next location is null: " + conn.getResponseMessage() + " " + conn.getResponseCode());
 			return null;
 		}
 
@@ -357,6 +361,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 	}
 
 	private JSONObject fetchJson(String urlStr) throws InterruptedException {
+		Logger.println("fetchJson: " + urlStr);
 		String jsonStr = "";
 		int attempt = 0;
 		while (attempt < 5) {
