@@ -217,6 +217,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 	private RoomInfo getRoomInfoFromLongId(String longId) throws InterruptedException {
 		Logger.println("getRoomInfoFromLongId: " + longId);
 		String reflowUrl = "https://webcast.amemv.com/webcast/room/reflow/info/?type_id=0&live_id=1&room_id=" + longId + "&app_id=1128";
+		reflowUrl += "&verifyFp=verify_lanqy33f_duFQpbWD_Anj2_42Ej_B899_MYXW9QN2vMGl&sec_user_id=MS4wLjABAAAAs9J_QWC-OjjRmbXiHrs7rt-AVuaGqWcx3w64y14nHtk&msToken=&X-Bogus=";
 		JSONObject json = fetchJson(reflowUrl);
 		if(json == null) {
 			System.err.println("getRoomInfo: Failed to fetch JSON");
