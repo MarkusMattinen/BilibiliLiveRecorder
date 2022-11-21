@@ -24,11 +24,8 @@ public class RoomDealerDouyin4User extends RoomDealer {
 	final public static String liver = "douyin";
 	final static String userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36";
 
-	final static Pattern pJson = Pattern.compile("<script id=\"RENDER_DATA\".*>(.*?)</script></head>");
-	final static Pattern pShortId = Pattern.compile("live.douyin.com/([0-9]+)");
 	final static Pattern pWebcastId = Pattern.compile("https://webcast.amemv.com/(?:douyin/)?webcast/reflow/([0-9]+)");
 
-	final static Pattern pJsonMobile = Pattern.compile("<script>window.__INIT_PROPS__ *= *(.*?)</script>");
 	@Override
 	public String getType() {
 		return ".flv";
@@ -53,59 +50,15 @@ public class RoomDealerDouyin4User extends RoomDealer {
 	public String getLiveUrl(String roomId, String qn, Object... obj) {
 		try {
 			String webcastId = (String) obj[0];
-			JSONObject stream_url = null;
-
-			if(webcastId != null) {
-				Logger.println("请求仅能在移动端播放的链接");
-				String urlStr = "https://webcast.amemv.com/webcast/reflow/" + webcastId;
-				Logger.println("Get: " + urlStr);
-				String html = util.getContent(urlStr, getMobileHeader());
-
-				String jsonStr = tryMatch(html, pJsonMobile);
-				Logger.println(jsonStr);
-
-				JSONObject json = new JSONObject(jsonStr);
-				JSONObject room = json.getJSONObject("/webcast/reflow/:id").getJSONObject("room");
-				stream_url = room.getJSONObject("stream_url");
-			}else {
-				Logger.println("请求PC Web端播放的链接");
-				String urlStr = "https://live.douyin.com/" + roomId;
-				Logger.println("Get: " + urlStr);
-				String html = util.getContent(urlStr, getPCHeader(), HttpCookies.convertCookies(cookie));
-
-				String encodedJson = tryMatch(html, pJson);
-				String jsonStr = URLDecoder.decode(encodedJson, "UTF-8");
-				Logger.println(jsonStr);
-
-				JSONObject json = new JSONObject(jsonStr);
-				JSONObject room = json.getJSONObject("initialState").getJSONObject("roomStore").getJSONObject("roomInfo").getJSONObject("room");
-				stream_url = room.optJSONObject("stream_url");
-			}
-
-			if (stream_url == null) {
-				System.err.println("getLiveUrl: No stream URL");
+			if (webcastId == null) {
+				System.err.println("getLiveUrl: No webcastId");
 				return null;
 			}
 
-			JSONArray flv_sources = stream_url.getJSONObject("live_core_sdk_data").getJSONObject("pull_data").getJSONObject("options").getJSONArray("qualities");
-			int flv_sources_len = flv_sources.length();
-			String sdk_key = null;
-			for (int i = 0; i < flv_sources_len; i++) {
-				JSONObject quality = flv_sources.getJSONObject(i);
-				int level = quality.getInt("level");
-				// 这里要与前面一致
-				if (qn.equals("" + (flv_sources_len - level))) {
-					sdk_key = quality.getString("sdk_key");
-					break;
-				}
-			}
+			String flvUrl = getFlvUrlFromWebcastId(webcastId);
+			Logger.println(flvUrl);
 
-			String pull_data = stream_url.getJSONObject("live_core_sdk_data").getJSONObject("pull_data").getString("stream_data");
-			JSONObject data = new JSONObject(pull_data).getJSONObject("data");
-			String link = data.getJSONObject(sdk_key).getJSONObject("main").getString("flv");
-			Logger.println(link);
-
-			return link;
+			return flvUrl;
 		} catch (Exception e) {
 			e.printStackTrace();
 			return null;
@@ -122,10 +75,10 @@ public class RoomDealerDouyin4User extends RoomDealer {
 	 */
 	@Override
 	public void startRecord(String url, String fileName, String shortId) {
-		HashMap<String, String> mobile = new HashMap<>();
-		mobile.put("User-Agent", "Mozilla/5.0 (Android 9.0; Mobile; rv:68.0) Gecko/68.0 Firefox/68.0");
+		HashMap<String, String> header = new HashMap<>();
+		header.put("User-Agent", userAgent);
 		Logger.println("Filename=" + fileName);
-		util.download(url, fileName + ".flv", mobile);
+		util.download(url, fileName + ".flv", header);
 	}
 
 	private HashMap<String, String> mobileHeader;
@@ -158,7 +111,8 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		Logger.println("handleReflow: " + location);
 
 		if (!location.startsWith("http")) {
-			return getRoomInfoFromShortId(location);
+			System.err.println("handleReflow: shortId currently not supported");
+			return null;
 		}
 
 		if (location.startsWith("https://v.douyin.com")) {
@@ -182,26 +136,21 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		}
 
 		if (location.startsWith("https://live.douyin.com/")) {
-			String shortId = tryMatch(location, pShortId);
-			if (shortId == null) {
-				System.err.println("handleReflow: Could not parse shortId!");
-				return null;
-			}
-
-			return getRoomInfoFromShortId(shortId);
+			System.err.println("handleReflow: shortId URL currently not supported");
+			return null;
 		}
 
 		System.err.println("handeReflow: Unexpected location: " + location);
 		return null;
 	}
 
-	private RoomInfo getRoomInfoFromWebcastId(String webcastId) throws InterruptedException {
-		Logger.println("getRoomInfoFromWebcastId: " + webcastId);
+	private JSONObject getRoomDataFromWebcastId(String webcastId) throws InterruptedException {
+		Logger.println("getRoomDataFromWebcastId: " + webcastId);
 		String reflowUrl = "https://webcast.amemv.com/webcast/room/reflow/info/?type_id=0&live_id=1&room_id=" + webcastId + "&app_id=1128";
 		reflowUrl += "&verifyFp=verify_lanqy33f_duFQpbWD_Anj2_42Ej_B899_MYXW9QN2vMGl&sec_user_id=MS4wLjABAAAAs9J_QWC-OjjRmbXiHrs7rt-AVuaGqWcx3w64y14nHtk&msToken=&X-Bogus=";
 		JSONObject json = fetchJson(reflowUrl);
 		if(json == null) {
-			System.err.println("getRoomInfo: Failed to fetch JSON");
+			System.err.println("getRoomDataFromWebcastId: Failed to fetch JSON");
 			return null;
 		}
 
@@ -217,17 +166,27 @@ public class RoomDealerDouyin4User extends RoomDealer {
 					String ownRoomId = ownRoomIds.getString(0);
 
 					if (ownRoomId != webcastId) {
-						System.err.println("getRoomInfo: Found new stream with id " + ownRoomId);
-						return getRoomInfoFromWebcastId(ownRoomId);
+						System.err.println("getRoomDataFromWebcastId: Found new stream with id " + ownRoomId);
+						return getRoomDataFromWebcastId(ownRoomId);
 					}
 				}
 			}
 
-			System.err.println("getRoomInfo: Stream has finished");
+			System.err.println("getRoomDataFromWebcastId: Stream has finished");
 			return null;
 		}
 
+		return json;
+	}
+
+	private RoomInfo getRoomInfoFromWebcastId(String webcastId) throws InterruptedException {
+		JSONObject json = getRoomDataFromWebcastId(webcastId);
+
+		JSONObject room = json.getJSONObject("data").getJSONObject("room");
+		JSONObject anchor = room.getJSONObject("owner");
+
 		RoomInfo roomInfo = new RoomInfo();
+		roomInfo.setRemark(webcastId);
 		String shortId = anchor.getString("web_rid");
 		roomInfo.setShortId(shortId);
 		roomInfo.setRoomId(shortId);
@@ -239,15 +198,11 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		JSONObject stream_url = room.optJSONObject("stream_url");
 
 		if (stream_url == null) {
-			if(room.getInt("status") == 2) {
-				webcastId = room.getString("id_str");
-				processRoomInfoFromWebcastId(roomInfo, webcastId);
-			} else {
-				roomInfo.setLiveStatus(0);
-			}
+			System.err.println("getRoomInfoFromWebcastId: Not live. Status: " + room.getInt("status"));
+			roomInfo.setLiveStatus(0);
 		} else {
-			roomInfo.setLiveStatus(1);
 			processQualities(roomInfo, stream_url);
+			roomInfo.setLiveStatus(1);
 		}
 
 		roomInfo.print();
@@ -255,66 +210,61 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		return roomInfo;
 	}
 
-	private RoomInfo getRoomInfoFromShortId(String shortId) throws UnsupportedEncodingException {
-		Logger.println("getRoomInfoFromShortId: " + shortId);
-		RoomInfo roomInfo = new RoomInfo();
-		roomInfo.setShortId(shortId);
-		roomInfo.setRoomId(shortId);
+	private void processQualities(RoomInfo roomInfo, JSONObject stream_url) {
+		JSONArray flv_sources = stream_url.getJSONObject("live_core_sdk_data").getJSONObject("pull_data").getJSONObject("options").getJSONArray("qualities");
+		int flv_sources_len = flv_sources.length();
+		String[] qn = new String[flv_sources_len];
+		String[] qnDesc = new String[flv_sources_len];
+		for (int i = 0; i < flv_sources_len; i++) {
+			// 为了让0, 1, 2, 3 数字越小清晰度越高
+			JSONObject obj = flv_sources.getJSONObject(i);
+			int level = obj.getInt("level");
+			qn[i] = "" + i;
+			qnDesc[flv_sources_len - level] = obj.getString("name");
+		}
+		roomInfo.setAcceptQuality(qn);
+		roomInfo.setAcceptQualityDesc(qnDesc);
+	}
 
-		String urlStr = "https://live.douyin.com/" + shortId;
-		Logger.println("Get: " + urlStr);
-		String html = util.getContent(urlStr, getPCHeader(), HttpCookies.convertCookies(cookie));
-		// Logger.println(html);
+	private String getFlvUrlFromWebcastId(String webcastId) throws InterruptedException {
+		JSONObject json = getRoomDataFromWebcastId(webcastId);
 
-		String encodedJson = tryMatch(html, pJson);
-		String jsonStr = URLDecoder.decode(encodedJson, "UTF-8");
-		Logger.println(jsonStr);
-
-		JSONObject json = new JSONObject(jsonStr);
-		JSONObject info = json.getJSONObject("initialState").getJSONObject("roomStore").getJSONObject("roomInfo");
-		JSONObject room = info.getJSONObject("room");
-		JSONObject anchor = info.getJSONObject("anchor");
+		JSONObject room = json.getJSONObject("data").getJSONObject("room");
 		JSONObject stream_url = room.optJSONObject("stream_url");
 
-		roomInfo.setUserName(anchor.getString("nickname"));
-		roomInfo.setUserId(anchor.optLong("id_str"));
-		roomInfo.setTitle(room.getString("title"));
-		roomInfo.setDescription(anchor.getString("nickname") + " 的直播间");
-		logRoom(room);
-
 		if (stream_url == null) {
-			if (room.getInt("status") == 2) {
-				String webcastId = room.getString("id_str");
-				processRoomInfoFromWebcastId(roomInfo, webcastId);
-			} else {
-				roomInfo.setLiveStatus(0);
-			}
-		} else {
-			roomInfo.setLiveStatus(1);
-			processQualities(roomInfo, stream_url);
+			System.err.println("getFlvUrlFromWebcastId: Not live. Status: " + room.getInt("status"));
+			return null;
 		}
 
-		roomInfo.print();
-		return roomInfo;
+		return getFlvUrl(stream_url);
 	}
 
-	private void processRoomInfoFromWebcastId(RoomInfo roomInfo, String webcastId) {
-		Logger.println("processRoomInfoFromWebcastId: " + webcastId);
-		roomInfo.setRemark(webcastId);
-		roomInfo.setLiveStatus(1);
+	private String getFlvUrl(JSONObject stream_url) {
+		JSONObject urls = stream_url.getJSONObject("flv_pull_url");
+		if (urls.has("ORIGION")) {
+			Logger.println("Selected quality: Origin");
 
-		String urlStr = "https://webcast.amemv.com/webcast/reflow/" + webcastId;
-		Logger.println("Get: " + urlStr);
-		String html = util.getContent(urlStr, getMobileHeader());
+			return urls.getString("ORIGION");
+		} else if (urls.has("FULL_HD1")) {
+			Logger.println("Selected quality: UHD");
 
-		String jsonStr = tryMatch(html, pJsonMobile);
-		Logger.println(jsonStr);
+			return urls.getString("FULL_HD1");
+		} else if (urls.has("HD1")) {
+			Logger.println("Selected quality: HD");
 
-		JSONObject json = new JSONObject(jsonStr);
-		JSONObject room = json.getJSONObject("/webcast/reflow/:id").getJSONObject("room");
-		JSONObject stream_url = room.getJSONObject("stream_url");
+			return urls.getString("HD1");
+		} else if (urls.has("SD2")) {
+			Logger.println("Selected quality: SD");
 
-		processQualities(roomInfo, stream_url);
+			return urls.getString("SD2");
+		} else if (urls.has("SD1")) {
+			Logger.println("Selected quality: LD");
+
+			return urls.getString("SD1");
+		}
+
+		return null;
 	}
 
 	private String fetchNextLocation(String urlStr) throws MalformedURLException, IOException {
@@ -362,22 +312,6 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		}
 
 		return null;
-	}
-
-	private void processQualities(RoomInfo roomInfo, JSONObject stream_url) {
-		JSONArray flv_sources = stream_url.getJSONObject("live_core_sdk_data").getJSONObject("pull_data").getJSONObject("options").getJSONArray("qualities");
-		int flv_sources_len = flv_sources.length();
-		String[] qn = new String[flv_sources_len];
-		String[] qnDesc = new String[flv_sources_len];
-		for (int i = 0; i < flv_sources_len; i++) {
-			// 为了让0, 1, 2, 3 数字越小清晰度越高
-			JSONObject obj = flv_sources.getJSONObject(i);
-			int level = obj.getInt("level");
-			qn[i] = "" + i;
-			qnDesc[flv_sources_len - level] = obj.getString("name");
-		}
-		roomInfo.setAcceptQuality(qn);
-		roomInfo.setAcceptQualityDesc(qnDesc);
 	}
 
 	private String tryMatch(String location, Pattern pattern) {
