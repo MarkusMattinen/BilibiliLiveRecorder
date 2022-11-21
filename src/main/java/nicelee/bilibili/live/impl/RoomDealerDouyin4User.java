@@ -26,8 +26,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 
 	final static Pattern pJson = Pattern.compile("<script id=\"RENDER_DATA\".*>(.*?)</script></head>");
 	final static Pattern pShortId = Pattern.compile("live.douyin.com/([0-9]+)");
-	final static Pattern pReflow1 = Pattern.compile("https://webcast.amemv.com/webcast/reflow/([0-9]+)");
-	final static Pattern pReflow2 = Pattern.compile("https://webcast.amemv.com/douyin/webcast/reflow/([0-9]+)");
+	final static Pattern pWebcastId = Pattern.compile("https://webcast.amemv.com/(?:douyin/)?webcast/reflow/([0-9]+)");
 
 	final static Pattern pJsonMobile = Pattern.compile("<script>window.__INIT_PROPS__ *= *(.*?)</script>");
 	@Override
@@ -172,32 +171,14 @@ public class RoomDealerDouyin4User extends RoomDealer {
 			return handleReflow(nextLocation);
 		}
 
-		if (location.startsWith("https://webcast.amemv.com/webcast/reflow/")) {
-			// alternatife flow with less incomplete metadata, also does not always work:
-			// String nextLocation = fetchNextLocation(location);
-			// return handleReflow(nextLocation);
-
-			String longId = tryMatch(location, pReflow1);
-			if (longId == null) {
-				System.err.println("handleReflow: Could not parse longId!");
+		if (location.startsWith("https://webcast.amemv.com")) {
+			String webcastId = tryMatch(location, pWebcastId);
+			if (webcastId == null) {
+				System.err.println("handleReflow: Could not parse webcastId!");
 				return null;
 			}
 
-			return getRoomInfoFromLongId(longId);
-		}
-
-		if (location.startsWith("https://webcast.amemv.com/douyin/webcast/reflow/")) {
-			// alternatife flow with less incomplete metadata, also does not always work:
-			// String nextLocation = fetchNextLocation(location);
-			// return handleReflow(nextLocation);
-
-			String longId = tryMatch(location, pReflow2);
-			if (longId == null) {
-				System.err.println("handleReflow: Could not parse longId!");
-				return null;
-			}
-
-			return getRoomInfoFromLongId(longId);
+			return getRoomInfoFromWebcastId(webcastId);
 		}
 
 		if (location.startsWith("https://live.douyin.com/")) {
@@ -214,9 +195,9 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		return null;
 	}
 
-	private RoomInfo getRoomInfoFromLongId(String longId) throws InterruptedException {
-		Logger.println("getRoomInfoFromLongId: " + longId);
-		String reflowUrl = "https://webcast.amemv.com/webcast/room/reflow/info/?type_id=0&live_id=1&room_id=" + longId + "&app_id=1128";
+	private RoomInfo getRoomInfoFromWebcastId(String webcastId) throws InterruptedException {
+		Logger.println("getRoomInfoFromWebcastId: " + webcastId);
+		String reflowUrl = "https://webcast.amemv.com/webcast/room/reflow/info/?type_id=0&live_id=1&room_id=" + webcastId + "&app_id=1128";
 		reflowUrl += "&verifyFp=verify_lanqy33f_duFQpbWD_Anj2_42Ej_B899_MYXW9QN2vMGl&sec_user_id=MS4wLjABAAAAs9J_QWC-OjjRmbXiHrs7rt-AVuaGqWcx3w64y14nHtk&msToken=&X-Bogus=";
 		JSONObject json = fetchJson(reflowUrl);
 		if(json == null) {
@@ -235,9 +216,9 @@ public class RoomDealerDouyin4User extends RoomDealer {
 				if (ownRoomIds.length() > 0) {
 					String ownRoomId = ownRoomIds.getString(0);
 
-					if (ownRoomId != longId) {
+					if (ownRoomId != webcastId) {
 						System.err.println("getRoomInfo: Found new stream with id " + ownRoomId);
-						return getRoomInfoFromLongId(ownRoomId);
+						return getRoomInfoFromWebcastId(ownRoomId);
 					}
 				}
 			}
@@ -259,8 +240,8 @@ public class RoomDealerDouyin4User extends RoomDealer {
 
 		if (stream_url == null) {
 			if(room.getInt("status") == 2) {
-				String webcastId = room.getString("id_str");
-				processRoomInfoForWebcast(roomInfo, webcastId);
+				webcastId = room.getString("id_str");
+				processRoomInfoFromWebcastId(roomInfo, webcastId);
 			} else {
 				roomInfo.setLiveStatus(0);
 			}
@@ -304,7 +285,7 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		if (stream_url == null) {
 			if (room.getInt("status") == 2) {
 				String webcastId = room.getString("id_str");
-				processRoomInfoForWebcast(roomInfo, webcastId);
+				processRoomInfoFromWebcastId(roomInfo, webcastId);
 			} else {
 				roomInfo.setLiveStatus(0);
 			}
@@ -317,8 +298,8 @@ public class RoomDealerDouyin4User extends RoomDealer {
 		return roomInfo;
 	}
 
-	private void processRoomInfoForWebcast(RoomInfo roomInfo, String webcastId) {
-		Logger.println("processRoomInfoForWebcast: " + webcastId);
+	private void processRoomInfoFromWebcastId(RoomInfo roomInfo, String webcastId) {
+		Logger.println("processRoomInfoFromWebcastId: " + webcastId);
 		roomInfo.setRemark(webcastId);
 		roomInfo.setLiveStatus(1);
 
